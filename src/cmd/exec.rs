@@ -429,8 +429,11 @@ fn prompt_for_missing_required(
     tool_obj: &serde_json::Map<String, serde_json::Value>,
     provided: &mut std::collections::HashMap<String, String>,
 ) -> Result<()> {
-    // Extract schema
-    let schema = tool_obj.get("input_schema").and_then(|v| v.as_object());
+    // Extract schema (support both snake_case `input_schema` and camelCase `inputSchema`)
+    let schema = tool_obj
+        .get("input_schema")
+        .or_else(|| tool_obj.get("inputSchema"))
+        .and_then(|v| v.as_object());
     let Some(schema_obj) = schema else {
         return Ok(()); // No schema -> nothing to prompt
     };

@@ -468,7 +468,11 @@ fn get_placeholder(subject: &str, json: bool) -> Result<()> {
 /// Return vector of (name, type, required, description)
 fn extract_params(tool_obj: &serde_json::Value) -> Vec<(String, String, bool, String)> {
     let mut params = Vec::new();
-    let Some(schema) = tool_obj.get("input_schema").and_then(|v| v.as_object()) else {
+    let Some(schema) = tool_obj
+        .get("input_schema")
+        .or_else(|| tool_obj.get("inputSchema"))
+        .and_then(|v| v.as_object())
+    else {
         return params;
     };
 

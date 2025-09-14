@@ -207,7 +207,10 @@ fn list_tools(args: ListArgs) -> Result<()> {
 
         // Parameter summary
         let mut param_pairs: Vec<String> = Vec::new();
-        if let Some(schema) = t.get("input_schema").and_then(|v| v.as_object())
+        if let Some(schema) = t
+            .get("input_schema")
+            .or_else(|| t.get("inputSchema"))
+            .and_then(|v| v.as_object())
             && let Some(props) = schema.get("properties").and_then(|v| v.as_object())
         {
             for (pname, pobj) in props.iter().take(8) {

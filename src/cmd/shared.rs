@@ -8,7 +8,7 @@ This module centralizes logic that was previously duplicated in the monolithic
   - Spawning a local MCP server process (child) via the `rmcp` child-process transport
   - Listing tools and extracting them as JSON objects
   - Locating a tool by (case‑insensitive) name
-  - Building a JSON arguments object from a tool's `input_schema`
+  - Building a JSON arguments object from a tool's `input_schema` / `inputSchema`
   - Coercing simple primitive types (integer/number/boolean/array)
   - Summarizing tool invocation results
 
@@ -155,10 +155,10 @@ pub fn find_tool_case_insensitive(
 /* Argument Building / Schema Handling                                        */
 /* -------------------------------------------------------------------------- */
 
-/// Build a JSON arguments object based on a tool's `input_schema`.
+/// Build a JSON arguments object based on a tool's `input_schema` / `inputSchema`.
 ///
 /// - `provided` map contains raw string values (from CLI, files, interactive input).
-/// - Required detection uses `input_schema.required` array.
+/// - Required detection uses `input_schema.required` (or `inputSchema.required`) array.
 /// - Each parameter is coerced according to its declared `"type"` property:
 ///       integer | number | boolean | array | (default -> string)
 /// - Extra keys in `provided` (not in schema) are passed through as strings.
@@ -170,7 +170,11 @@ pub fn build_arguments_from_schema(
     tool_obj: &serde_json::Map<String, serde_json::Value>,
     provided: &std::collections::HashMap<String, String>,
 ) -> Result<serde_json::Map<String, serde_json::Value>> {
-    let schema = tool_obj.get("input_schema").and_then(|v| v.as_object());
+    // Support both snake_case `input_schema` and camelCase `inputSchema`
+    let schema = tool_obj
+        .get("input_schema")
+        .or_else(|| tool_obj.get("inputSchema"))
+        .and_then(|v| v.as_object());
     let mut result = serde_json::Map::new();
 
     // Collect required names
