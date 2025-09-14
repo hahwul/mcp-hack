@@ -174,7 +174,14 @@ pub fn box_header(
 
     // Title formatted
     let title_styled = color(Role::Primary, title, style);
-    let subtitle_line = sub.map(|s| color(Role::Secondary, s, style));
+
+    // Compact subtitle formatting: collapse " ms" -> "ms" to reduce wrap chance
+    let sub_compact = sub.map(|s| {
+        let mut owned = s.to_string();
+        owned = owned.replace(" ms", "ms");
+        owned
+    });
+    let subtitle_line = sub_compact.map(|s| color(Role::Secondary, s, style));
 
     let inner_title = match &subtitle_line {
         Some(sline) => format!("{title_styled}  {}", sline),
@@ -184,7 +191,7 @@ pub fn box_header(
     let inner_len = strip_ansi(&inner_title).chars().count();
     // Box width = min(requested, inner_len + borders + padding)
     let total_inner = (inner_len + padding * 2).min(content_width - 2);
-    let total_width = total_inner + 2; // plus vertical borders
+    let mut total_width = total_inner + 2; // plus vertical borders
 
     // Top border
     lines.push(format!(
@@ -194,17 +201,58 @@ pub fn box_header(
         tr = tr
     ));
 
-    // Content (wrap if needed)
-    let wrapped = wrap_text(&inner_title, total_width - 2 - padding * 2);
+    // Content (wrap if needed) with simple widow prevention
+    let mut wrap_width = total_width - 2 - padding * 2;
+    let mut wrapped = wrap_text(&inner_title, wrap_width);
+
+    if wrapped.len() > 1 {
+        let last_len = display_width(&wrapped[wrapped.len() - 1]);
+        // If last line is a very short widow (<=3 chars), try to expand width or merge
+        if last_len > 0 && last_len <= 3 {
+            // Try width expansion first (if terminal space remains)
+            let max_inner_allowed = content_width - 2;
+            if total_width < content_width {
+                let extra_possible = max_inner_allowed + 2 - total_width;
+                // Add just enough to comfortably fit the widow onto previous line
+                // Heuristic: expand by at most 6 chars
+                let expand_by = extra_possible.min(6);
+                if expand_by > 0 {
+                    total_width += expand_by;
+                    wrap_width += expand_by;
+                    wrapped = wrap_text(&inner_title, wrap_width);
+                }
+            }
+            // If still widow after expansion, merge it manually
+            if wrapped.len() > 1 {
+                let last_len2 = display_width(&wrapped[wrapped.len() - 1]);
+                if last_len2 > 0 && last_len2 <= 3 {
+                    let last = wrapped.pop().unwrap();
+                    if let Some(prev) = wrapped.last_mut() {
+                        prev.push(' ');
+                        prev.push_str(&last);
+                    } else {
+                        wrapped.push(last);
+                    }
+                }
+            }
+        }
+    }
+
     for w in wrapped {
         let raw_len = strip_ansi(&w).chars().count();
         let space_pad = total_width - 2 - padding * 2 - raw_len;
+        let pad_str = " ".repeat(padding);
+        let spaces_str = if space_pad > 0 {
+            " ".repeat(space_pad)
+        } else {
+            String::new()
+        };
         lines.push(format!(
             "{v}{pad}{w}{spaces}{pad}{v}",
             v = v,
-            pad = " ".repeat(padding),
+            pad = pad_str,
             w = w,
-            spaces = " ".repeat(space_pad),
+            spaces = spaces_str,
         ));
     }
 
