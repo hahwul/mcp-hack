@@ -9,12 +9,18 @@ Supported subjects (via `Subject` enum):
                        (if no name provided, interactive selection)
   - resources / prompts: placeholders (not implemented yet)
 
+Human Output Enhancements (fancy formatting):
+  - Boxed headers with target + elapsed time
+  - Parameter table with columns: NAME | TYPE | REQ | DESCRIPTION
+  - Color + emoji (disabled via NO_COLOR / NO_EMOJI env vars)
+  - Summary hints at bottom
+
 Target Handling:
   - Uses `--target/-t` if supplied
   - Otherwise falls back to the `MCP_TARGET` environment variable
   - Only local (process) targets are implemented today; remote is placeholder
 
-JSON Output Shapes:
+JSON Output Shapes (unchanged):
 
 1) get tools
 {
@@ -30,8 +36,7 @@ JSON Output Shapes:
       "parameters":[
         {"name":"id","type":"integer","required":true,"description":""}
       ]
-    },
-    ...
+    }
   ]
 }
 
@@ -63,13 +68,13 @@ Future Enhancements:
   - Rich formatting (table columns / color)
   - Schema validation & nested parameter rendering
   - Optional caching of spawned MCP server process
-
 */
 
 use anyhow::{Context, Result};
 use clap::Args;
 use std::io::{self, Write};
 
+use crate::cmd::format::{StyleOptions, box_header, emoji};
 use crate::cmd::shared::fetch_tools_local;
 use crate::cmd::subject::Subject;
 use crate::mcp;
@@ -97,13 +102,11 @@ pub struct GetArgs {
 /// Entrypoint for `get` subcommand.
 pub fn execute_get(mut args: GetArgs) -> Result<()> {
     // Fallback to environment target if not supplied.
-    if args.target.is_none() {
-        if let Ok(env_t) = std::env::var("MCP_TARGET") {
-            if !env_t.trim().is_empty() {
+    if args.target.is_none()
+        && let Ok(env_t) = std::env::var("MCP_TARGET")
+            && !env_t.trim().is_empty() {
                 args.target = Some(env_t);
             }
-        }
-    }
 
     match args.subject {
         Subject::Tools => get_all_tools(args),
@@ -201,12 +204,17 @@ fn get_all_tools(args: GetArgs) -> Result<()> {
     }
 
     // Human output
-    println!(
-        "Tools Detail ({}) - target: {} ({} ms)",
-        tool_list.count(),
-        target,
-        tool_list.elapsed_ms
+    let style = StyleOptions::detect();
+    let header = box_header(
+        format!(
+            "{} Tools Detail ({})",
+            emoji("list", &style),
+            tool_list.count()
+        ),
+        Some(format!("target={target} • {} ms", tool_list.elapsed_ms)),
+        &style,
     );
+    println!("{header}");
     if tool_list.tools.is_empty() {
         println!("(none)");
         return Ok(());
@@ -230,15 +238,31 @@ fn get_all_tools(args: GetArgs) -> Result<()> {
         if params.is_empty() {
             println!("  Parameters: (none)");
         } else {
-            println!("  Parameters:");
+            // Fancy parameter table
+            use crate::cmd::format::{StyleOptions, TableOpts, table};
+            let style = StyleOptions::detect();
+            let mut rows_vec: Vec<Vec<String>> = Vec::new();
             for (pn, pt, req, pd) in params {
-                let req_s = if req { "required" } else { "optional" };
-                if pd.is_empty() {
-                    println!("    - {pn} ({pt}, {req_s})");
-                } else {
-                    println!("    - {pn} ({pt}, {req_s}) - {pd}");
-                }
+                rows_vec.push(vec![
+                    pn,
+                    pt,
+                    if req { "yes".into() } else { "no".into() },
+                    if pd.is_empty() { "-".into() } else { pd },
+                ]);
             }
+            let tbl = table(
+                &["NAME", "TYPE", "REQ", "DESCRIPTION"],
+                &rows_vec,
+                TableOpts {
+                    max_width: style.term_width,
+                    truncate: true,
+                    header_sep: true,
+                    zebra: false,
+                    min_col_width: 2,
+                },
+                &style,
+            );
+            println!("{tbl}");
         }
     }
 
@@ -318,12 +342,11 @@ fn get_single_tool(args: GetArgs) -> Result<()> {
     // Locate tool
     let mut found: Option<serde_json::Value> = None;
     for t in &tool_list.tools {
-        if let Some(n) = t.get("name").and_then(|v| v.as_str()) {
-            if n.eq_ignore_ascii_case(&final_name) {
+        if let Some(n) = t.get("name").and_then(|v| v.as_str())
+            && n.eq_ignore_ascii_case(&final_name) {
                 found = Some(t.clone());
                 break;
             }
-        }
     }
 
     let Some(tool_obj) = found else {
@@ -365,7 +388,13 @@ fn get_single_tool(args: GetArgs) -> Result<()> {
     }
 
     // Human output
-    println!("Tool: {}", final_name);
+    let style = StyleOptions::detect();
+    let header = box_header(
+        format!("{} Tool: {}", emoji("tool", &style), final_name),
+        Some(format!("target={target} • {} ms", tool_list.elapsed_ms)),
+        &style,
+    );
+    println!("{header}");
     if let Some(desc) = tool_obj.get("description").and_then(|v| v.as_str()) {
         println!(
             "Description: {}",
@@ -377,15 +406,30 @@ fn get_single_tool(args: GetArgs) -> Result<()> {
     if params.is_empty() {
         println!("Parameters: (none)");
     } else {
-        println!("Parameters:");
+        use crate::cmd::format::{StyleOptions, TableOpts, table};
+        let style = StyleOptions::detect();
+        let mut rows: Vec<Vec<String>> = Vec::new();
         for (n, t, r, d) in params {
-            let req_s = if r { "required" } else { "optional" };
-            if d.is_empty() {
-                println!("  - {n} ({t}, {req_s})");
-            } else {
-                println!("  - {n} ({t}, {req_s}) - {d}");
-            }
+            rows.push(vec![
+                n,
+                t,
+                if r { "yes".into() } else { "no".into() },
+                if d.is_empty() { "-".into() } else { d },
+            ]);
         }
+        let tbl = table(
+            &["NAME", "TYPE", "REQ", "DESCRIPTION"],
+            &rows,
+            TableOpts {
+                max_width: style.term_width,
+                truncate: true,
+                header_sep: true,
+                zebra: false,
+                min_col_width: 2,
+            },
+            &style,
+        );
+        println!("{tbl}");
     }
 
     Ok(())
@@ -478,15 +522,14 @@ fn interactive_select_tool(tools: &[serde_json::Value]) -> Result<String> {
     io::stdin().read_line(&mut line)?;
     let trimmed = line.trim();
     // Try numeric selection
-    if let Ok(idx) = trimmed.parse::<usize>() {
-        if idx >= 1 && idx <= tools.len() {
+    if let Ok(idx) = trimmed.parse::<usize>()
+        && idx >= 1 && idx <= tools.len() {
             let nm = tools[idx - 1]
                 .get("name")
                 .and_then(|v| v.as_str())
                 .unwrap_or("<unnamed>");
             return Ok(nm.to_string());
         }
-    }
     // Fallback: treat trimmed input as direct name
     if trimmed.is_empty() {
         anyhow::bail!("invalid selection");

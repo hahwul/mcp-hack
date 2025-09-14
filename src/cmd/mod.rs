@@ -63,9 +63,8 @@ pub mod subject;
 // (Optional) add later:
 pub mod shared;
 // pub mod remote;
-// pub mod format;
+pub mod format;
 
-pub use subject::Subject;
 
 pub use exec::{ExecArgs, execute_exec};
 pub use get::{GetArgs, execute_get};

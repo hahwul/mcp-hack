@@ -131,7 +131,7 @@ pub fn extract_tool_array(value: &serde_json::Value) -> Vec<serde_json::Value> {
     value
         .get("tools")
         .and_then(|v| v.as_array())
-        .map(|arr| arr.iter().cloned().collect())
+        .map(|arr| arr.to_vec())
         .unwrap_or_default()
 }
 
@@ -142,11 +142,10 @@ pub fn find_tool_case_insensitive(
 ) -> Option<serde_json::Value> {
     let arr = value.get("tools")?.as_array()?;
     for t in arr {
-        if let Some(n) = t.get("name").and_then(|v| v.as_str()) {
-            if n.eq_ignore_ascii_case(name) {
+        if let Some(n) = t.get("name").and_then(|v| v.as_str())
+            && n.eq_ignore_ascii_case(name) {
                 return Some(t.clone());
             }
-        }
     }
     None
 }
@@ -224,7 +223,7 @@ pub fn coerce_value(raw: &str, type_hint: &str) -> serde_json::Value {
         "number" => raw
             .parse::<f64>()
             .ok()
-            .and_then(|f| serde_json::Number::from_f64(f))
+            .and_then(serde_json::Number::from_f64)
             .map(serde_json::Value::Number)
             .unwrap_or_else(|| serde_json::Value::String(raw.to_string())),
         "boolean" => {

@@ -6,7 +6,7 @@ of a single MCP tool exposed by a local MCP server process.
 
 Current Capabilities:
   - Local process targets (spawned via child process transport)
-  - Subject filter: only `tools` (plural) is accepted; other subjects are rejected
+  - Subject filter: prefers `tool` (singular); `tools` accepted with deprecation warning
   - Tool selection by explicit name argument
   - Parameter injection via:
       --param KEY=VALUE              (repeatable)
@@ -26,7 +26,7 @@ Not Yet Implemented:
 JSON Success Output (summary mode):
 {
   "status": "ok",
-  "subject": "tools",
+  "subject": "tool",
   "tool": "example_tool",
   "target": "...",
   "elapsed_ms": 42,
@@ -37,7 +37,7 @@ JSON Success Output (summary mode):
 JSON Success Output (--raw):
 {
   "status": "ok",
-  "subject": "tools",
+  "subject": "tool",
   "tool": "example_tool",
   "target": "...",
   "elapsed_ms": 42,
@@ -59,6 +59,7 @@ use std::io::{self, Write};
 use std::time::Instant;
 
 use super::subject::Subject;
+use crate::cmd::format::{Role, StyleOptions, TableOpts, box_header, color, emoji, table};
 use crate::cmd::shared::{
     build_arguments_from_schema, find_tool_case_insensitive, summarize_call_result,
 };
@@ -70,7 +71,7 @@ use crate::mcp;
 
 #[derive(Args, Debug)]
 pub struct ExecArgs {
-    /// Subject to execute (only 'tools' is supported)
+    /// Subject to execute ('tool' preferred; 'tools' is a deprecated alias)
     pub subject: Subject,
 
     /// Tool name to invoke
@@ -107,9 +108,25 @@ pub struct ExecArgs {
 /* -------------------------------------------------------------------------- */
 
 pub fn execute_exec(mut args: ExecArgs) -> Result<()> {
-    // Subject check
-    if !matches!(args.subject, Subject::Tools) {
-        return output_error(args.json, "exec currently supports only 'tools' subject");
+    // Subject check & deprecation handling
+    if matches!(args.subject, Subject::Tools) {
+        // Backward compatibility: allow plural with a warning
+        if args.json {
+            eprintln!(r#"{{"warning":"subject 'tools' is deprecated; use 'tool'"}}"#);
+        } else {
+            let style = StyleOptions::detect();
+            println!(
+                "{} {}",
+                emoji("info", &style),
+                color(
+                    Role::Dim,
+                    "Subject 'tools' is deprecated; use 'tool'",
+                    &style
+                )
+            );
+        }
+    } else if !matches!(args.subject, Subject::Tool) {
+        return output_error(args.json, "exec currently supports only subject 'tool'");
     }
 
     // Tool name validation
@@ -119,13 +136,11 @@ pub fn execute_exec(mut args: ExecArgs) -> Result<()> {
     }
 
     // Determine target (CLI > env)
-    if args.target.is_none() {
-        if let Ok(env_t) = std::env::var("MCP_TARGET") {
-            if !env_t.trim().is_empty() {
+    if args.target.is_none()
+        && let Ok(env_t) = std::env::var("MCP_TARGET")
+            && !env_t.trim().is_empty() {
                 args.target = Some(env_t);
             }
-        }
-    }
     let target_raw = match &args.target {
         Some(t) if !t.trim().is_empty() => t.trim().to_string(),
         _ => {
@@ -162,11 +177,10 @@ pub fn execute_exec(mut args: ExecArgs) -> Result<()> {
     }
 
     // Load param file if specified (merge non-conflicting keys)
-    if let Some(ref pf) = args.param_file {
-        if let Err(e) = load_param_file_into_map(pf, &mut provided) {
+    if let Some(ref pf) = args.param_file
+        && let Err(e) = load_param_file_into_map(pf, &mut provided) {
             return output_error(args.json, &e.to_string());
         }
-    }
 
     // Build runtime + spawn + list tools + interactive prompts + call tool
     let started = Instant::now();
@@ -186,7 +200,7 @@ pub fn execute_exec(mut args: ExecArgs) -> Result<()> {
                 // JSON output
                 let mut base = serde_json::json!({
                     "status":"ok",
-                    "subject":"tools",
+                    "subject": "tool",
                     "tool": tool_name_owned,
                     "target": target_raw,
                     "elapsed_ms": elapsed_ms,
@@ -200,35 +214,77 @@ pub fn execute_exec(mut args: ExecArgs) -> Result<()> {
                                 .unwrap_or_else(|_| serde_json::json!({"error":"serialize"})),
                         );
                     }
-                } else {
-                    if let serde_json::Value::Object(ref mut map) = base {
-                        map.insert(
-                            "result_summary".to_string(),
-                            summarize_call_result(&call_result),
-                        );
-                    }
+                } else if let serde_json::Value::Object(ref mut map) = base {
+                    map.insert(
+                        "result_summary".to_string(),
+                        summarize_call_result(&call_result),
+                    );
                 }
                 println!(
                     "{}",
                     serde_json::to_string_pretty(&base).unwrap_or_else(|_| base.to_string())
                 );
             } else {
-                // Human-readable output
-                println!("Exec");
-                println!("  Target : {}", target_raw);
-                println!("  Tool   : {}", tool_name_owned);
-                println!("  Elapsed: {} ms", elapsed_ms);
+                // Fancy human-readable output
+                let style = StyleOptions::detect();
+
+                // Header box
+                let header = box_header(
+                    format!(
+                        "{} Exec Success ({})",
+                        emoji("success", &style),
+                        tool_name_owned
+                    ),
+                    Some(format!("target={target_raw} • {elapsed_ms} ms")),
+                    &style,
+                );
+                println!("{header}");
+
+                // Arguments table (if any)
                 if final_args_map.is_empty() {
-                    println!("  Args   : (none)");
+                    println!(
+                        "{}",
+                        color(
+                            Role::Dim,
+                            format!("{} No arguments supplied", emoji("info", &style)),
+                            &style
+                        )
+                    );
                 } else {
-                    println!("  Args:");
+                    let mut arg_rows: Vec<Vec<String>> = Vec::new();
                     for (k, v) in &final_args_map {
-                        println!("    - {k} = {}", v);
+                        let v_str = match v {
+                            serde_json::Value::String(s) => s.clone(),
+                            other => other.to_string(),
+                        };
+                        arg_rows.push(vec![k.clone(), v_str]);
                     }
+                    // stable ordering
+                    arg_rows.sort_by(|a, b| a[0].cmp(&b[0]));
+                    let arg_table = table(
+                        &["NAME", "VALUE"],
+                        &arg_rows,
+                        TableOpts {
+                            max_width: style.term_width,
+                            truncate: true,
+                            header_sep: true,
+                            zebra: false,
+                            min_col_width: 2,
+                        },
+                        &style,
+                    );
+                    println!("{}", color(Role::Accent, "Arguments:", &style));
+                    println!("{arg_table}");
                 }
+
                 println!();
+
                 if args.raw {
-                    println!("Raw Result:");
+                    println!(
+                        "{} {}",
+                        emoji("info", &style),
+                        color(Role::Accent, "Raw Result:", &style)
+                    );
                     println!(
                         "{}",
                         serde_json::to_string_pretty(
@@ -238,12 +294,25 @@ pub fn execute_exec(mut args: ExecArgs) -> Result<()> {
                         .unwrap_or_else(|_| "<serialize error>".into())
                     );
                 } else {
-                    println!("Result Summary:");
+                    println!(
+                        "{} {}",
+                        emoji("info", &style),
+                        color(Role::Accent, "Result Summary:", &style)
+                    );
                     let summary = summarize_call_result(&call_result);
                     println!(
                         "{}",
                         serde_json::to_string_pretty(&summary)
                             .unwrap_or_else(|_| summary.to_string())
+                    );
+                    println!(
+                        "\n{} {}",
+                        emoji("info", &style),
+                        color(
+                            Role::Dim,
+                            "Use --raw to see full call result payload",
+                            &style
+                        )
                     );
                 }
             }
@@ -464,7 +533,22 @@ fn output_error(json: bool, msg: &str) -> Result<()> {
             serde_json::to_string_pretty(&err).unwrap_or_else(|_| err.to_string())
         );
     } else {
-        eprintln!("Error: {msg}");
+        // Fancy red error box for human output
+        let style = StyleOptions::detect();
+        let title = format!("{} Exec Error", emoji("error", &style));
+        // Color the message in red (Role::Error)
+        let subtitle = color(Role::Error, msg, &style);
+        let boxed = box_header(title, Some(subtitle), &style);
+        println!("{boxed}");
+        println!(
+            "{} {}",
+            emoji("info", &style),
+            color(
+                Role::Dim,
+                "Re-run with --json for machine-readable output or add --raw for full result payload (if available).",
+                &style
+            )
+        );
     }
     anyhow::bail!(msg.to_string())
 }

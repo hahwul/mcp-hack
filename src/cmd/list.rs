@@ -46,6 +46,7 @@ Future Enhancements (not yet implemented):
 use anyhow::{Context, Result};
 use clap::Args;
 
+use crate::cmd::format::{Role, StyleOptions, TableOpts, box_header, color, emoji, table};
 use crate::cmd::shared::fetch_tools_local;
 use crate::cmd::subject::Subject;
 use crate::mcp;
@@ -69,13 +70,11 @@ pub struct ListArgs {
 /// Entry point for the list subcommand.
 pub fn execute_list(mut args: ListArgs) -> Result<()> {
     // If user didn't supply --target, fall back to MCP_TARGET env.
-    if args.target.is_none() {
-        if let Ok(env_t) = std::env::var("MCP_TARGET") {
-            if !env_t.trim().is_empty() {
+    if args.target.is_none()
+        && let Ok(env_t) = std::env::var("MCP_TARGET")
+            && !env_t.trim().is_empty() {
                 args.target = Some(env_t);
             }
-        }
-    }
 
     match args.subject {
         Subject::Tools | Subject::Tool => list_tools(args),
@@ -168,49 +167,100 @@ fn list_tools(args: ListArgs) -> Result<()> {
     }
 
     // Human-readable output
-    println!(
-        "Tools ({count}) - target: {target} ({} ms)",
-        tool_list.elapsed_ms
+    // Fancy header + table formatting
+    let style = StyleOptions::detect();
+
+    let header = box_header(
+        format!("{} Tools ({count})", emoji("list", &style)),
+        Some(format!("target={target} • {} ms", tool_list.elapsed_ms)),
+        &style,
     );
+    println!("{header}");
+
     if count == 0 {
-        println!("(none)");
+        println!(
+            "{}",
+            color(
+                Role::Dim,
+                format!("{} (none)", emoji("info", &style)),
+                &style
+            )
+        );
         return Ok(());
     }
 
-    // Prepare rows (name, description)
-    let mut rows: Vec<(String, String)> = Vec::with_capacity(count);
-    for t in &tool_list.tools {
+    // Build rows with columns: ["#", "NAME", "PARAMS", "DESCRIPTION"]
+    // PARAMS: summarized as "p1:type, p2:type" (truncated)
+    let mut table_rows: Vec<Vec<String>> = Vec::with_capacity(count);
+    for (idx, t) in tool_list.tools.iter().enumerate() {
         let name = t
             .get("name")
             .and_then(|v| v.as_str())
             .unwrap_or("<unnamed>")
             .to_string();
-        let desc = t
+        let desc_raw = t
             .get("description")
             .and_then(|v| v.as_str())
             .unwrap_or("")
             .replace('\n', " ");
-        rows.push((name, desc));
+
+        // Parameter summary
+        let mut param_pairs: Vec<String> = Vec::new();
+        if let Some(schema) = t.get("input_schema").and_then(|v| v.as_object())
+            && let Some(props) = schema.get("properties").and_then(|v| v.as_object()) {
+                for (pname, pobj) in props.iter().take(8) {
+                    let ptype = pobj
+                        .as_object()
+                        .and_then(|m| m.get("type"))
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("any");
+                    param_pairs.push(format!("{pname}:{ptype}"));
+                }
+                if props.len() > 8 {
+                    param_pairs.push("…".into());
+                }
+            }
+        let param_summary = if param_pairs.is_empty() {
+            "-".to_string()
+        } else {
+            param_pairs.join(", ")
+        };
+
+        // Truncate description for table view
+        let desc = if desc_raw.len() > 90 {
+            let mut s = desc_raw[..87].to_string();
+            s.push_str("...");
+            s
+        } else {
+            desc_raw
+        };
+
+        table_rows.push(vec![(idx + 1).to_string(), name, param_summary, desc]);
     }
 
-    // Compute column width
-    let name_w = rows
-        .iter()
-        .map(|(n, _)| n.len())
-        .max()
-        .unwrap_or(4)
-        .min(40)
-        .max("NAME".len());
+    let tbl = table(
+        &["#", "NAME", "PARAMS", "DESCRIPTION"],
+        &table_rows,
+        TableOpts {
+            max_width: style.term_width,
+            truncate: true,
+            header_sep: true,
+            zebra: false,
+            min_col_width: 2,
+        },
+        &style,
+    );
+    println!("{tbl}");
 
-    println!("{:-<name_w$} {}", "NAME", "DESCRIPTION", name_w = name_w);
-    for (n, d) in rows {
-        let mut desc = d;
-        if desc.len() > 70 {
-            desc.truncate(67);
-            desc.push_str("...");
-        }
-        println!("{:<name_w$} {}", n, desc, name_w = name_w);
-    }
+    println!(
+        "\n{} {}",
+        emoji("info", &style),
+        color(
+            Role::Dim,
+            "Use `mcp-hack get tool <name>` for detailed info on a single tool",
+            &style
+        )
+    );
 
     Ok(())
 }
