@@ -1,37 +1,20 @@
 /*!
-`shared.rs`
+shared.rs - shared helpers for subcommands.
 
-Shared helpers for `mcp-hack` CLI subcommand implementations (`list`, `get`, `exec`).
+Focus:
+  - fetch_tools_local(_async): spawn local MCP process + list tools
+  - extract_tool_array / find_tool_case_insensitive
+  - build_arguments_from_schema + primitive coercion
+  - summarize_call_result
 
-This module centralizes logic that was previously duplicated in the monolithic
-`cmd/mod.rs`:
-  - Spawning a local MCP server process (child) via the `rmcp` child-process transport
-  - Listing tools and extracting them as JSON objects
-  - Locating a tool by (case‑insensitive) name
-  - Building a JSON arguments object from a tool's `input_schema` / `inputSchema`
-  - Coercing simple primitive types (integer/number/boolean/array)
-  - Summarizing tool invocation results
-
-Design Goals:
-  - Keep functions small and composable
-  - Avoid pulling Tokio runtime creation into every helper (provide a sync
-    wrapper that creates a runtime internally for current synchronous `main`)
-  - Make minimal assumptions about higher‑level command semantics
-  - Provide serde_json values rather than introducing bespoke structs until
-    schema stabilizes
-
-If/When the project migrates to an async `main`, a future refactor can:
-  - Replace `fetch_tools_local` (sync) with `fetch_tools_local_async` calls directly
-  - Reuse a single Tokio runtime (or rely on the async context)
-
+Goal: keep reusable, minimal logic for list/get/exec. Remote transports,
+caching, richer validation left for future iterations.
 */
 
 use anyhow::{Context, Result};
 use std::time::Instant;
 
-/* -------------------------------------------------------------------------- */
-/* Data Structures                                                            */
-/* -------------------------------------------------------------------------- */
+/* ---- Data Structures ---- */
 
 /// Result of fetching tools from a local MCP target process.
 #[derive(Debug)]
@@ -54,9 +37,7 @@ impl ToolList {
     }
 }
 
-/* -------------------------------------------------------------------------- */
-/* Fetch / Spawn Helpers                                                      */
-/* -------------------------------------------------------------------------- */
+/* ---- Fetch / Spawn Helpers ---- */
 
 /// Synchronous convenience wrapper:
 ///   - Creates a temporary Tokio runtime
@@ -121,9 +102,7 @@ pub async fn fetch_tools_local_async(spec: &crate::mcp::TargetSpec) -> Result<To
     })
 }
 
-/* -------------------------------------------------------------------------- */
-/* Tool Object Utilities                                                      */
-/* -------------------------------------------------------------------------- */
+/* ---- Tool Object Utilities ---- */
 
 /// Return a cloned vector of tool objects from a JSON value containing a `tools` array.
 /// Silent on missing / malformed content (returns empty vec).
@@ -151,9 +130,7 @@ pub fn find_tool_case_insensitive(
     None
 }
 
-/* -------------------------------------------------------------------------- */
-/* Argument Building / Schema Handling                                        */
-/* -------------------------------------------------------------------------- */
+/* ---- Argument Building / Schema Handling ---- */
 
 /// Build a JSON arguments object based on a tool's `input_schema` / `inputSchema`.
 ///
@@ -251,9 +228,7 @@ pub fn coerce_value(raw: &str, type_hint: &str) -> serde_json::Value {
     }
 }
 
-/* -------------------------------------------------------------------------- */
-/* Result Summarization                                                        */
-/* -------------------------------------------------------------------------- */
+/* ---- Result Summarization ---- */
 
 /// Convert a `CallToolResult` into JSON for summarization.
 /// If serialization fails, returns a small stub object.
@@ -262,9 +237,7 @@ pub fn summarize_call_result(call_result: &rmcp::model::CallToolResult) -> serde
         .unwrap_or_else(|_| serde_json::json!({ "note": "unable to serialize result" }))
 }
 
-/* -------------------------------------------------------------------------- */
-/* Tests (basic)                                                              */
-/* -------------------------------------------------------------------------- */
+/* ---- Tests (basic) ---- */
 #[cfg(test)]
 mod tests {
     use super::*;

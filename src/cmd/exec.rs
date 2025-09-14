@@ -1,56 +1,18 @@
 /*!
-`exec.rs`
+exec.rs - exec subcommand.
 
-Implements the `exec` subcommand for the `mcp-hack` CLI, allowing direct invocation
-of a single MCP tool exposed by a local MCP server process.
+Invokes a single MCP tool from a local process target.
 
-Current Capabilities:
-  - Local process targets (spawned via child process transport)
-  - Subject filter: prefers `tool` (singular); `tools` accepted with deprecation warning
-  - Tool selection by explicit name argument
-  - Parameter injection via:
-      --param KEY=VALUE              (repeatable)
-      --param-file params.(json|yaml) (merged; CLI --param overrides file entries)
-      --interactive                  (prompt for missing required params)
-  - Basic type coercion (integer / number / boolean / array) using shared helpers
-  - JSON or human-readable output
-  - Raw result inclusion with --raw
+Supports:
+  - Local process target (spawn/spawn+invoke)
+  - Subject: 'tool' (preferred) / 'tools' (deprecated alias)
+  - --param KEY=VALUE (repeat)
+  - --param-file file.(json|yaml) (merged; CLI overrides)
+  - --interactive (prompt missing required params)
+  - Primitive coercion (integer/number/boolean/array)
+  - Human or --json output; --raw includes full result object
 
-Not Yet Implemented:
-  - Remote targets (HTTP/SSE/WS)
-  - Tool discovery caching / persistent process reuse
-  - Complex schema validation (nested objects, enums, etc.)
-  - Concurrency / multiple invocations
-  - Timeout / cancellation knobs
-
-JSON Success Output (summary mode):
-{
-  "status": "ok",
-  "subject": "tool",
-  "tool": "example_tool",
-  "target": "...",
-  "elapsed_ms": 42,
-  "arguments": { ... },
-  "result_summary": { ...serialized call result... }
-}
-
-JSON Success Output (--raw):
-{
-  "status": "ok",
-  "subject": "tool",
-  "tool": "example_tool",
-  "target": "...",
-  "elapsed_ms": 42,
-  "arguments": { ... },
-  "result": { ...full raw call result object... }
-}
-
-JSON Error Output:
-{
-  "status":"error",
-  "error":"message"
-}
-
+Remote execution is not implemented yet.
 */
 
 use anyhow::{Context, Result};
@@ -65,9 +27,7 @@ use crate::cmd::shared::{
 };
 use crate::mcp;
 
-/* -------------------------------------------------------------------------- */
-/* Argument Struct                                                            */
-/* -------------------------------------------------------------------------- */
+/* ---- Argument Struct ---- */
 
 #[derive(Args, Debug)]
 pub struct ExecArgs {
@@ -103,9 +63,7 @@ pub struct ExecArgs {
     pub raw: bool,
 }
 
-/* -------------------------------------------------------------------------- */
-/* Public Entry Point                                                         */
-/* -------------------------------------------------------------------------- */
+/* ---- Public Entry Point ---- */
 
 pub fn execute_exec(mut args: ExecArgs) -> Result<()> {
     // Subject check & deprecation handling
@@ -327,9 +285,7 @@ pub fn execute_exec(mut args: ExecArgs) -> Result<()> {
     Ok(())
 }
 
-/* -------------------------------------------------------------------------- */
-/* Core Invocation Logic                                                       */
-/* -------------------------------------------------------------------------- */
+/* ---- Core Invocation Logic ---- */
 
 fn invoke_tool(
     spec: &crate::mcp::TargetSpec,
@@ -421,9 +377,7 @@ fn invoke_tool(
     })
 }
 
-/* -------------------------------------------------------------------------- */
-/* Interactive Prompting                                                       */
-/* -------------------------------------------------------------------------- */
+/* ---- Interactive Prompting ---- */
 
 fn prompt_for_missing_required(
     tool_obj: &serde_json::Map<String, serde_json::Value>,
@@ -489,9 +443,7 @@ fn prompt_for_missing_required(
     Ok(())
 }
 
-/* -------------------------------------------------------------------------- */
-/* Parameter File Loading                                                      */
-/* -------------------------------------------------------------------------- */
+/* ---- Parameter File Loading ---- */
 
 fn load_param_file_into_map(
     path: &str,
@@ -526,9 +478,7 @@ fn load_param_file_into_map(
     Ok(())
 }
 
-/* -------------------------------------------------------------------------- */
-/* Output Helpers                                                              */
-/* -------------------------------------------------------------------------- */
+/* ---- Output Helpers ---- */
 
 fn output_error(json: bool, msg: &str) -> Result<()> {
     if json {
@@ -558,9 +508,7 @@ fn output_error(json: bool, msg: &str) -> Result<()> {
     anyhow::bail!(msg.to_string())
 }
 
-/* -------------------------------------------------------------------------- */
-/* Tests (basic components)                                                    */
-/* -------------------------------------------------------------------------- */
+/* ---- Tests (basic components) ---- */
 #[cfg(test)]
 mod tests {
     use super::*;

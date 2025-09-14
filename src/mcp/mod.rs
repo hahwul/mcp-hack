@@ -1,41 +1,8 @@
-//! MCP Target Parsing & Connection Abstractions
+//! Target parsing (local command vs remote URL).
 //!
-//! This module provides a thin layer to normalize how the CLI interprets
-//! the `-t / --target` flag. A user may specify either:
-//!   1. A remote MCP endpoint (URL) e.g. `https://example.com/mcp`,
-//!      potentially (future) supporting `wss://` / `ws://` transports.
-//!   2. A local MCP server command (executable and args) e.g.
-//!         `npx -y @modelcontextprotocol/server-everything`
-//!         `./my-mcp-server --port 0`
-//!
-//! The goal is to:
-//! - Parse the raw string into a structured `TargetSpec`
-//! - Provide helpers to detect validity / classify target kind
-//! - (Incremental) Provide async connection scaffolding for local process targets
-//!   using the `rmcp` crate's transport layer.
-//!
-//! NOTE: Actual remote transport (HTTP/WebSocket) connection logic is NOT implemented yet;
-//! this file sets the foundation so future subcommands (`list`, `test`, `fuzz`) can
-//! request a normalized target descriptor without duplicating parsing logic.
-//!
-//! Future Enhancements:
-//! - Add caching / registry for spawned local processes
-//! - Introduce timeout / graceful shutdown logic
-//! - Add remote (HTTP/WebSocket) client transport implementations
-//! - Optional target alias resolution via config file
-//! - Structured error variants (custom error enum)
-//!
-//! Public API (initial):
-//! - parse_target(raw: &str) -> TargetSpec
-//! - TargetSpec::is_remote()
-//! - TargetSpec::is_local()
-//! - establish(spec) -> async placeholder for future real connection
-//!
-//! Example usage from CLI layer:
-//! ```ignore
-//! let spec = mcp::parse_target(target_str)?;
-//! if spec.is_local() { ... }
-//! ```
+//! parse_target -> TargetSpec { LocalCommand | RemoteUrl }
+//! Helpers: is_local / is_remote / establish (local spawn; remote placeholder).
+//! Remote transports not implemented yet.
 //!
 use anyhow::{Context, Result, bail};
 use shell_words::split as shell_split;

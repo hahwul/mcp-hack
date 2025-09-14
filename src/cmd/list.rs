@@ -1,46 +1,9 @@
 /*!
-`list.rs`
+list.rs - list subcommand.
 
-Implements the `list` subcommand for the `mcp-hack` CLI.
-
-Supported subjects (via `Subject` enum):
-  - tools      : enumerate tool names (local MCP target)
-  - tool       : alias to `tools` (singular form; prints same output)
-  - resources  : placeholder
-  - prompts    : placeholder
-
-Behavior:
-  - If no explicit `--target` is provided, falls back to the `MCP_TARGET`
-    environment variable (if present & non-empty).
-  - Local target:
-      * Spawns the MCP server process (stderr suppressed) using `shared::fetch_tools_local`
-      * Extracts tool names & optional description
-      * Outputs either human-readable table or JSON
-  - Remote target:
-      * Placeholder output noting remote enumeration is not yet implemented
-  - Missing target:
-      * Prints a zero-count placeholder
-
-JSON Output Shape (tools):
-{
-  "status": "ok",
-  "subject": "tools",
-  "target": "<target or null>",
-  "elapsed_ms": 12,
-  "count": 3,
-  "tools": [
-    { "name": "foo", "description": "..." },
-    { "name": "bar", "description": "" }
-  ]
-}
-
-Future Enhancements (not yet implemented):
-  - Remote transport enumeration (HTTP/SSE/WS)
-  - Filtering (--filter, --contains)
-  - Pagination / ordering
-  - Rich formatting (colors / widths) behind a --no-json default
-  - Caching of spawned local processes
-
+Lists tools (and placeholder subjects). Uses a local MCP process target to
+enumerate tool names + brief metadata, emitting either a human table or JSON.
+Remote enumeration is not implemented yet.
 */
 
 use anyhow::{Context, Result};

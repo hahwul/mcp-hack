@@ -1,28 +1,16 @@
 /*!
-`subject.rs`
+Subject enum for CLI subcommands.
 
-Defines the `Subject` enum used across the CLI subcommands (`list`, `get`, `exec`).
-Separated to keep `mod.rs` small and to avoid pulling full command implementation details
-where only the subject classification is needed.
+Variants:
+  tools (all tools)
+  tool  (single tool)
+  resources / prompts (placeholders)
 
-Subjects (current semantics):
-  - `tools`     : plural – enumerate or show details for all tools
-  - `tool`      : singular – show (or interactively select) one tool
-  - `resources` : placeholder (future: MCP resources enumeration)
-  - `prompts`   : placeholder (future: MCP prompt templates)
-
-Parsing / Display:
-  - Implements `clap::ValueEnum` for CLI usage.
-  - Implements `Display` for user‑friendly formatting.
-  - Provides a custom case‑insensitive `from_str_ci` for internal (non‑clap) parsing.
-
-Extension Guidance:
-  - If you later add more subjects, ensure they are reflected in:
-       * The `Display` implementation
-       * The `variants()` accessor
-       * The `from_str_ci` helper
-  - Consider a feature gate if certain subjects become optional.
-
+Helpers:
+  - variants()
+  - from_str_ci()
+  - is_implemented()
+  - is_singular_tool()
 */
 
 use std::fmt;

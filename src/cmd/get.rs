@@ -1,73 +1,18 @@
 /*!
-`get.rs`
+get.rs - get subcommand.
 
-Implements the `get` subcommand for the `mcp-hack` CLI.
+Provides detailed tool metadata.
 
-Supported subjects (via `Subject` enum):
-  - tools (plural): return detailed information for all tools
-  - tool  (singular): return detailed information for exactly one tool
-                       (if no name provided, interactive selection)
-  - resources / prompts: placeholders (not implemented yet)
+Subjects:
+  tools  : all tools (with parameter summaries)
+  tool   : single tool (interactive select if name omitted)
+  resources / prompts : placeholders
 
-Human Output Enhancements (fancy formatting):
-  - Boxed headers with target + elapsed time
-  - Parameter table with columns: NAME | TYPE | REQ | DESCRIPTION
-  - Color + emoji (disabled via NO_COLOR / NO_EMOJI env vars)
-  - Summary hints at bottom
+Outputs:
+  Human: boxed header + parameter table
+  JSON : stable fields (status, subject, target, elapsed_ms, parameters)
 
-Target Handling:
-  - Uses `--target/-t` if supplied
-  - Otherwise falls back to the `MCP_TARGET` environment variable
-  - Only local (process) targets are implemented today; remote is placeholder
-
-JSON Output Shapes (unchanged):
-
-1) get tools
-{
-  "status":"ok",
-  "subject":"tools",
-  "target":"<...>",
-  "elapsed_ms": 12,
-  "count": 2,
-  "tools":[
-    {
-      "name":"toolA",
-      "description":"desc",
-      "parameters":[
-        {"name":"id","type":"integer","required":true,"description":""}
-      ]
-    }
-  ]
-}
-
-2) get tool <name> (or interactively chosen)
-{
-  "status":"ok",
-  "subject":"tool",
-  "target":"<...>",
-  "elapsed_ms": 7,
-  "name":"toolA",
-  "tool": { <raw tool object> },
-  "parameters":[
-    {"name":"id","type":"integer","required":true,"description":""}
-  ]
-}
-
-Placeholders (resources/prompts):
-{
-  "status":"ok",
-  "subject":"resources",
-  "count":0,
-  "items":[],
-  "note":"get for this subject not implemented yet"
-}
-
-Future Enhancements:
-  - Remote transports (HTTP/SSE/WS)
-  - Filtering (--filter / --name <pattern>)
-  - Rich formatting (table columns / color)
-  - Schema validation & nested parameter rendering
-  - Optional caching of spawned MCP server process
+Remote targets: parsed only; retrieval not implemented yet.
 */
 
 use anyhow::{Context, Result};
@@ -117,9 +62,7 @@ pub fn execute_get(mut args: GetArgs) -> Result<()> {
     }
 }
 
-/* -------------------------------------------------------------------------- */
-/* Tools (plural)                                                              */
-/* -------------------------------------------------------------------------- */
+/* ---- Tools (plural) ---- */
 
 fn get_all_tools(args: GetArgs) -> Result<()> {
     let Some(target) = args.target.as_deref() else {
@@ -270,9 +213,7 @@ fn get_all_tools(args: GetArgs) -> Result<()> {
     Ok(())
 }
 
-/* -------------------------------------------------------------------------- */
-/* Singular tool                                                              */
-/* -------------------------------------------------------------------------- */
+/* ---- Singular tool ---- */
 
 fn get_single_tool(args: GetArgs) -> Result<()> {
     let Some(target) = args.target.as_deref() else {
@@ -437,9 +378,7 @@ fn get_single_tool(args: GetArgs) -> Result<()> {
     Ok(())
 }
 
-/* -------------------------------------------------------------------------- */
-/* Placeholder subjects                                                        */
-/* -------------------------------------------------------------------------- */
+/* ---- Placeholder subjects ---- */
 
 fn get_placeholder(subject: &str, json: bool) -> Result<()> {
     if json {
@@ -459,9 +398,7 @@ fn get_placeholder(subject: &str, json: bool) -> Result<()> {
     Ok(())
 }
 
-/* -------------------------------------------------------------------------- */
-/* Helpers                                                                     */
-/* -------------------------------------------------------------------------- */
+/* ---- Helpers ---- */
 
 /// Extract parameter list from a raw tool JSON object.
 ///
@@ -545,9 +482,7 @@ fn interactive_select_tool(tools: &[serde_json::Value]) -> Result<String> {
     Ok(trimmed.to_string())
 }
 
-/* -------------------------------------------------------------------------- */
-/* Tests (basic)                                                               */
-/* -------------------------------------------------------------------------- */
+/* ---- Tests (basic) ---- */
 #[cfg(test)]
 mod tests {
     use super::*;

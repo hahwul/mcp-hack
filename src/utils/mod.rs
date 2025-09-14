@@ -1,19 +1,17 @@
-//! Utilities module for mcp-hack
+//! Utilities: logging (dynamic level), minimal JSON string helpers, ANSI color (respects NO_COLOR),
+//! progress tracking, monotonic timing, simple error context trait.
 //!
-//! Provides:
-//! - Lightweight logging (no external deps) with dynamic level
-//! - Simple JSON string helpers (without pulling serde yet)
-//! - ANSI color helpers (respects NO_COLOR)
-//! - Progress tracking struct
-//! - Error context helper trait
-//!
-//! Integrate by calling `init_logging(derive_level(verbose, quiet));` early in `main`.
+//! Key items:
+//!   init_logging / derive_level
+//!   output::* (json_escape etc.)
+//!   monotonic_ms
+//!   Progress / ProgressSnapshot
 
 use std::sync::OnceLock;
 use std::sync::atomic::{AtomicU8, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-/// Logging and output helpers.
+/// Logging helpers.
 pub mod logging {
     use super::*;
 

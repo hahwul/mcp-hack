@@ -7,39 +7,27 @@ mod utils;
 
 use cmd::{ExecArgs, GetArgs, ListArgs};
 
-/// MCP Hack - Refactored CLI (modularized: see cmd/{list,get,exec,subject,shared}.rs)
+/// MCP Hack CLI
 ///
-/// New command layout (modular):
-///   mcp-hack list <tools|resources|prompts> [--json] [-t "<target>"]
-///   mcp-hack get  <tools|tool|resources|prompts> [NAME] [--json] [-t "<target>"]
-///   mcp-hack exec tools <tool-name> [--param k=v ...] [-t "<target>"] [--json] [--raw]
-///
-/// Notes:
-///   - get tools : detailed info for all tools
-///   - get tool  : detailed info for a single tool; if NAME omitted, interactive selection prompts
-///
-/// Global flags / env:
-///   -v / -vv        Increase verbosity
-///   -q / --quiet    Errors only
-///   -t / --target   Default target (or MCP_TARGET env); -H/--header KEY=VALUE (repeatable)
-///   MCP_TARGET      Environment fallback if -t not provided
-///
-/// Subjects:
-///   tools      - Implemented (enumerates / invokes)
-///   tool       - Single tool detail (interactive if no name)
-///   resources  - Placeholder
-///   prompts    - Placeholder
-///
-/// Target kinds:
-///   Local command (spawned): e.g.  "npx -y @modelcontextprotocol/server-everything"
-///   Remote URL (http/https/ws/wss): placeholder only (no enumeration yet)
+/// Implemented subjects: `tools`, `tool` (plural vs single); `resources` / `prompts` are placeholders.
 ///
 /// Examples:
 ///   mcp-hack list tools -t "npx -y @modelcontextprotocol/server-everything"
-///   mcp-hack get tools -t "npx -y @modelcontextprotocol/server-everything" --json
 ///   mcp-hack get tool scan_with_dalfox -t "dalfox server --type=mcp" --json
-///   mcp-hack get tool -t "dalfox server --type=mcp"   (interactive selection)
-///   mcp-hack exec tools scan_with_dalfox -t "dalfox server --type=mcp" --param url=https://target --json
+///   mcp-hack get tool -t "dalfox server --type=mcp"            (interactive choose)
+///   mcp-hack exec tool scan_with_dalfox -t "dalfox server --type=mcp" --param url=https://target --json
+///
+/// Targets:
+///   - Local command (spawned child process)  [supported]
+///   - Remote URL (http/https/ws/wss)         [parsing only; remote ops not yet implemented]
+///
+/// Global flags / env:
+///   -v / -vv increase verbosity; -q quiet
+///   -t / --target or MCP_TARGET env for default target
+///   -H / --header KEY=VALUE (reserved for future remote support)
+///
+/// Output:
+///   Human-readable tables / boxes or `--json`.
 #[derive(Parser, Debug)]
 #[command(
     name = "mcp-hack",
@@ -89,14 +77,14 @@ fn main() -> Result<()> {
     let level = utils::derive_level(cli.verbose, cli.quiet);
     utils::init_logging(level);
 
-    // Determine effective global target (CLI flag > MCP_TARGET env)
+    // Effective global target (CLI flag > MCP_TARGET env)
     let global_target = cli.target.clone().or_else(|| {
         std::env::var("MCP_TARGET")
             .ok()
             .filter(|s| !s.trim().is_empty())
     });
 
-    // Validate if present
+    // Validate target syntax early if provided
     if let Some(t) = &global_target
         && let Err(e) = mcp::parse_target(t)
     {

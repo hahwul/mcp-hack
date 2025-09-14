@@ -1,58 +1,22 @@
 /*!
-format.rs
+Formatting utilities: color, emoji, boxed headers, tables, wrapping, truncation.
 
-Fancy formatting utilities for `mcp-hack` CLI (human output paths).
+Used only for human output; JSON paths must remain free of formatting codes.
 
-Goals:
-  - Provide consistent colorful / boxed / tabular formatting primitives.
-  - Centralize style decision logic (e.g., NO_COLOR env, future --plain / --no-emoji).
-  - Keep zero non-std dependencies (no terminal crates) for simplicity.
-  - Degrade gracefully when ANSI disabled (NO_COLOR set).
+Env toggles:
+  NO_COLOR  disable ANSI
+  NO_EMOJI  disable emoji
 
-Current Design (Baseline):
-  - Color + box styling ENABLED by default (per user decision).
-  - Emoji usage ENABLED by default (NO_EMOJI env = disable).
-  - Wrap / truncate logic kept conservative; width detection is best-effort via:
-        env COLUMNS -> parse -> clamp (40..=220) else default 100.
-
-Future Extension Points:
-  - Integrate global CLI flags: --plain, --no-emoji, --wide, --no-border.
-  - Adaptive wrapping based on actual terminal (ioctl/TIOCGWINSZ) if needed.
-  - Multi‑column layout / automatic column priority reduction.
-  - Markdown / HTML export backend.
-
-Public API Summary:
-  - StyleOptions::detect() -> StyleOptions
-  - color(role, text, &StyleOptions) -> String
-  - emoji(tag, &StyleOptions) -> &'static str
-  - box_header(title, subtitle_opt, &StyleOptions) -> String
-  - table(headers, rows, TableOpts, &StyleOptions) -> String
-  - wrap_text(s, max_width) -> Vec<String>
-  - truncate_ellipsis(s, max_chars) -> String
-
-Usage Example (inside a command module):
-  let style = StyleOptions::detect();
-  println!("{}", box_header("Tools (5)", Some("target=... • 12 ms"), &style));
-  let tbl = table(
-      &["#", "NAME", "PARAMS", "DESCRIPTION"],
-      &rows,
-      TableOpts::default(),
-      &style
-  );
-  println!("{tbl}");
-
-NOTE:
-  - This module avoids logging or printing directly (returns formatted strings).
-  - JSON output paths SHOULD NOT use these helpers to keep machine output clean.
-
-License: MIT (inherits project license)
+Key API:
+  StyleOptions::detect
+  color / emoji
+  box_header / table
+  wrap_text / truncate_ellipsis
 */
 
 use std::borrow::Cow;
 
-/* -------------------------------------------------------------------------- */
-/* Style Options                                                              */
-/* -------------------------------------------------------------------------- */
+/* ---- Style Options ---- */
 
 #[derive(Debug, Clone)]
 pub struct StyleOptions {
@@ -98,9 +62,7 @@ impl StyleOptions {
     }
 }
 
-/* -------------------------------------------------------------------------- */
-/* Color / Emoji                                                              */
-/* -------------------------------------------------------------------------- */
+/* ---- Color / Emoji ---- */
 
 #[derive(Debug, Clone, Copy)]
 pub enum Role {
@@ -151,9 +113,7 @@ pub fn emoji(tag: &str, style: &StyleOptions) -> &'static str {
     }
 }
 
-/* -------------------------------------------------------------------------- */
-/* Box Header                                                                 */
-/* -------------------------------------------------------------------------- */
+/* ---- Box Header ---- */
 
 pub fn box_header(
     title: impl AsRef<str>,
@@ -267,9 +227,7 @@ pub fn box_header(
     lines.join("\n")
 }
 
-/* -------------------------------------------------------------------------- */
-/* Table Rendering                                                             */
-/* -------------------------------------------------------------------------- */
+/* ---- Table Rendering ---- */
 
 #[derive(Debug, Clone)]
 pub struct TableOpts {
@@ -417,9 +375,7 @@ fn pad_or_truncate(s: &str, width: usize, truncate: bool) -> String {
     out
 }
 
-/* -------------------------------------------------------------------------- */
-/* Text Helpers                                                                */
-/* -------------------------------------------------------------------------- */
+/* ---- Text Helpers ---- */
 
 pub fn wrap_text(s: &str, max_width: usize) -> Vec<String> {
     if max_width == 0 {
@@ -465,9 +421,7 @@ pub fn truncate_ellipsis(s: &str, max_chars: usize) -> String {
     out
 }
 
-/* -------------------------------------------------------------------------- */
-/* ANSI / Width Utilities                                                      */
-/* -------------------------------------------------------------------------- */
+/* ---- ANSI / Width Utilities ---- */
 
 fn strip_ansi(s: &str) -> Cow<'_, str> {
     // Minimal implementation (no regex) — scans for ESC '[' ... 'm'
@@ -504,9 +458,7 @@ fn display_width(s: &str) -> usize {
     strip_ansi(s).chars().count()
 }
 
-/* -------------------------------------------------------------------------- */
-/* Tests                                                                       */
-/* -------------------------------------------------------------------------- */
+/* ---- Tests ---- */
 
 #[cfg(test)]
 mod tests {
