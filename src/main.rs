@@ -98,10 +98,11 @@ fn main() -> Result<()> {
 
     // Validate if present
     if let Some(t) = &global_target
-        && let Err(e) = mcp::parse_target(t) {
-            eprintln!("Invalid target '{}': {e}", t);
-            std::process::exit(2);
-        }
+        && let Err(e) = mcp::parse_target(t)
+    {
+        eprintln!("Invalid target '{}': {e}", t);
+        std::process::exit(2);
+    }
 
     match cli.command {
         Commands::List(mut args) => {

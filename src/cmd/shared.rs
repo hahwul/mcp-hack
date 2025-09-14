@@ -143,9 +143,10 @@ pub fn find_tool_case_insensitive(
     let arr = value.get("tools")?.as_array()?;
     for t in arr {
         if let Some(n) = t.get("name").and_then(|v| v.as_str())
-            && n.eq_ignore_ascii_case(name) {
-                return Some(t.clone());
-            }
+            && n.eq_ignore_ascii_case(name)
+        {
+            return Some(t.clone());
+        }
     }
     None
 }

@@ -118,9 +118,7 @@ pub mod logging {
     }
 }
 
-pub use logging::{
-    derive_level, init_logging,
-};
+pub use logging::{derive_level, init_logging};
 
 /// Output related helpers (simple JSON/ANSI formatting w/o extra deps).
 pub mod output {
@@ -196,7 +194,6 @@ pub mod output {
         }
     }
 }
-
 
 /// Generic error enrichment helper (lightweight inline alternative to anyhow::Context).
 pub trait ContextExt<T> {

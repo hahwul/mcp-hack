@@ -24,3 +24,7 @@ MCP_TARGET="npx -y @modelcontextprotocol/server-memory" ./target/debug/mcp-hack 
 ```bash
 MCP_TARGET="npx -y @modelcontextprotocol/server-memory" ./target/debug/mcp-hack get tool open_nodes
 ```
+
+```bash
+MCP_TARGET="npx -y @modelcontextprotocol/server-memory" ./target/debug/mcp-hack exec read_graph
+```

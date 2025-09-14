@@ -138,9 +138,10 @@ pub fn execute_exec(mut args: ExecArgs) -> Result<()> {
     // Determine target (CLI > env)
     if args.target.is_none()
         && let Ok(env_t) = std::env::var("MCP_TARGET")
-            && !env_t.trim().is_empty() {
-                args.target = Some(env_t);
-            }
+        && !env_t.trim().is_empty()
+    {
+        args.target = Some(env_t);
+    }
     let target_raw = match &args.target {
         Some(t) if !t.trim().is_empty() => t.trim().to_string(),
         _ => {
@@ -178,9 +179,10 @@ pub fn execute_exec(mut args: ExecArgs) -> Result<()> {
 
     // Load param file if specified (merge non-conflicting keys)
     if let Some(ref pf) = args.param_file
-        && let Err(e) = load_param_file_into_map(pf, &mut provided) {
-            return output_error(args.json, &e.to_string());
-        }
+        && let Err(e) = load_param_file_into_map(pf, &mut provided)
+    {
+        return output_error(args.json, &e.to_string());
+    }
 
     // Build runtime + spawn + list tools + interactive prompts + call tool
     let started = Instant::now();

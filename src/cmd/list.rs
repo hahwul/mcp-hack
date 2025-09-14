@@ -72,9 +72,10 @@ pub fn execute_list(mut args: ListArgs) -> Result<()> {
     // If user didn't supply --target, fall back to MCP_TARGET env.
     if args.target.is_none()
         && let Ok(env_t) = std::env::var("MCP_TARGET")
-            && !env_t.trim().is_empty() {
-                args.target = Some(env_t);
-            }
+        && !env_t.trim().is_empty()
+    {
+        args.target = Some(env_t);
+    }
 
     match args.subject {
         Subject::Tools | Subject::Tool => list_tools(args),
@@ -207,19 +208,20 @@ fn list_tools(args: ListArgs) -> Result<()> {
         // Parameter summary
         let mut param_pairs: Vec<String> = Vec::new();
         if let Some(schema) = t.get("input_schema").and_then(|v| v.as_object())
-            && let Some(props) = schema.get("properties").and_then(|v| v.as_object()) {
-                for (pname, pobj) in props.iter().take(8) {
-                    let ptype = pobj
-                        .as_object()
-                        .and_then(|m| m.get("type"))
-                        .and_then(|v| v.as_str())
-                        .unwrap_or("any");
-                    param_pairs.push(format!("{pname}:{ptype}"));
-                }
-                if props.len() > 8 {
-                    param_pairs.push("…".into());
-                }
+            && let Some(props) = schema.get("properties").and_then(|v| v.as_object())
+        {
+            for (pname, pobj) in props.iter().take(8) {
+                let ptype = pobj
+                    .as_object()
+                    .and_then(|m| m.get("type"))
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("any");
+                param_pairs.push(format!("{pname}:{ptype}"));
             }
+            if props.len() > 8 {
+                param_pairs.push("…".into());
+            }
+        }
         let param_summary = if param_pairs.is_empty() {
             "-".to_string()
         } else {

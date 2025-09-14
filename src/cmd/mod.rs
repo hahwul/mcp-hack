@@ -65,7 +65,6 @@ pub mod shared;
 // pub mod remote;
 pub mod format;
 
-
 pub use exec::{ExecArgs, execute_exec};
 pub use get::{GetArgs, execute_get};
 pub use list::{ListArgs, execute_list};

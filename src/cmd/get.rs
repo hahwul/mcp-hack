@@ -104,9 +104,10 @@ pub fn execute_get(mut args: GetArgs) -> Result<()> {
     // Fallback to environment target if not supplied.
     if args.target.is_none()
         && let Ok(env_t) = std::env::var("MCP_TARGET")
-            && !env_t.trim().is_empty() {
-                args.target = Some(env_t);
-            }
+        && !env_t.trim().is_empty()
+    {
+        args.target = Some(env_t);
+    }
 
     match args.subject {
         Subject::Tools => get_all_tools(args),
@@ -343,10 +344,11 @@ fn get_single_tool(args: GetArgs) -> Result<()> {
     let mut found: Option<serde_json::Value> = None;
     for t in &tool_list.tools {
         if let Some(n) = t.get("name").and_then(|v| v.as_str())
-            && n.eq_ignore_ascii_case(&final_name) {
-                found = Some(t.clone());
-                break;
-            }
+            && n.eq_ignore_ascii_case(&final_name)
+        {
+            found = Some(t.clone());
+            break;
+        }
     }
 
     let Some(tool_obj) = found else {
@@ -523,13 +525,15 @@ fn interactive_select_tool(tools: &[serde_json::Value]) -> Result<String> {
     let trimmed = line.trim();
     // Try numeric selection
     if let Ok(idx) = trimmed.parse::<usize>()
-        && idx >= 1 && idx <= tools.len() {
-            let nm = tools[idx - 1]
-                .get("name")
-                .and_then(|v| v.as_str())
-                .unwrap_or("<unnamed>");
-            return Ok(nm.to_string());
-        }
+        && idx >= 1
+        && idx <= tools.len()
+    {
+        let nm = tools[idx - 1]
+            .get("name")
+            .and_then(|v| v.as_str())
+            .unwrap_or("<unnamed>");
+        return Ok(nm.to_string());
+    }
     // Fallback: treat trimmed input as direct name
     if trimmed.is_empty() {
         anyhow::bail!("invalid selection");
