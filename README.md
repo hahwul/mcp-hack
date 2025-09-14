@@ -14,3 +14,13 @@
 </p>
 
 ---
+
+## Example
+
+```bash
+MCP_TARGET="npx -y @modelcontextprotocol/server-memory" ./target/debug/mcp-hack list tools
+```
+
+```bash
+MCP_TARGET="npx -y @modelcontextprotocol/server-memory" ./target/debug/mcp-hack get tool open_nodes
+```
