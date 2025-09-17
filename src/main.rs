@@ -5,7 +5,9 @@ mod cmd;
 mod mcp;
 mod utils;
 
-use cmd::{ExecArgs, GetArgs, ListArgs};
+use cmd::{
+    ExecArgs, FuzzArgs, GetArgs, ListArgs, execute_exec, execute_fuzz, execute_get, execute_list,
+};
 
 /// MCP Hack CLI
 ///
@@ -27,7 +29,7 @@ use cmd::{ExecArgs, GetArgs, ListArgs};
 ///   -H / --header KEY=VALUE (reserved for future remote support)
 ///
 /// Output:
-///   Human-readable tables / boxes or `--json`.
+///   Human-readable tables / boxes or --json`.
 #[derive(Parser, Debug)]
 #[command(
     name = "mcp-hack",
@@ -68,6 +70,9 @@ pub enum Commands {
 
     /// Execute (invoke) a tool
     Exec(ExecArgs),
+
+    /// Fuzz a tool with a wordlist
+    Fuzz(FuzzArgs),
 }
 
 fn main() -> Result<()> {
@@ -86,30 +91,35 @@ fn main() -> Result<()> {
 
     // Validate target syntax early if provided
     if let Some(t) = &global_target
-        && let Err(e) = mcp::parse_target(t)
-    {
-        eprintln!("Invalid target '{}': {e}", t);
-        std::process::exit(2);
-    }
+        && let Err(e) = mcp::parse_target(t) {
+            eprintln!("Invalid target '{}': {}", t, e);
+            std::process::exit(2);
+        }
 
     match cli.command {
         Commands::List(mut args) => {
             if args.target.is_none() {
                 args.target = global_target.clone();
             }
-            cmd::execute_list(args)
+            execute_list(args)
         }
         Commands::Get(mut args) => {
             if args.target.is_none() {
                 args.target = global_target.clone();
             }
-            cmd::execute_get(args)
+            execute_get(args)
         }
         Commands::Exec(mut args) => {
             if args.target.is_none() {
                 args.target = global_target.clone();
             }
-            cmd::execute_exec(args)
+            execute_exec(args)
+        }
+        Commands::Fuzz(mut args) => {
+            if args.target.is_none() {
+                args.target = global_target.clone();
+            }
+            execute_fuzz(args)
         }
     }
 }

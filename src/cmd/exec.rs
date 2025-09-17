@@ -287,7 +287,7 @@ pub fn execute_exec(mut args: ExecArgs) -> Result<()> {
 
 /* ---- Core Invocation Logic ---- */
 
-fn invoke_tool(
+pub fn invoke_tool(
     spec: &crate::mcp::TargetSpec,
     tool_name: &str,
     mut provided: std::collections::HashMap<String, String>,
@@ -445,7 +445,7 @@ fn prompt_for_missing_required(
 
 /* ---- Parameter File Loading ---- */
 
-fn load_param_file_into_map(
+pub fn load_param_file_into_map(
     path: &str,
     provided: &mut std::collections::HashMap<String, String>,
 ) -> Result<()> {
@@ -480,7 +480,7 @@ fn load_param_file_into_map(
 
 /* ---- Output Helpers ---- */
 
-fn output_error(json: bool, msg: &str) -> Result<()> {
+pub fn output_error(json: bool, msg: &str) -> Result<()> {
     if json {
         let err = serde_json::json!({"status":"error","error":msg});
         println!(

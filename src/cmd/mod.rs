@@ -13,11 +13,13 @@ Add new commands by creating a file and re-exporting its args + execute function
 
 pub mod exec;
 pub mod format;
+pub mod fuzz;
 pub mod get;
 pub mod list;
 pub mod shared;
 pub mod subject;
 
 pub use exec::{ExecArgs, execute_exec};
+pub use fuzz::{FuzzArgs, execute_fuzz};
 pub use get::{GetArgs, execute_get};
 pub use list::{ListArgs, execute_list};
